@@ -1,0 +1,29 @@
+# EV-10: Step 1 outputs for Gate 1, against night 1 facts. `good` must pass; each `bad` must be rejected
+# with the listed code. IDs are per-run aliases f1..fN (severity order; see FactSheet.build).
+# {{ALL_REQUIRED}} expands to the aliases Gate 1 requires, split across themes by the test.
+good:
+  - id: E01
+    note: every required finding, three themes
+    template: three_themes
+  - id: E02
+    note: required findings plus optional LOW ones, fenced in ```json
+    template: fenced_with_low
+bad:
+  - {id: X01, expect: PARSE, text: "Here are the themes: {\"themes\": []}"}
+  - {id: X02, expect: PARSE, text: "{\"themes\": [{\"title\": \"a\", \"priority\": 1, \"finding_ids\": [\"f1\"]}"}
+  - {id: X03, expect: SCHEMA, text: "{\"groups\": []}"}
+  - {id: X04, expect: SCHEMA, text: "{\"themes\": [{\"title\": \"a\", \"priority\": \"1\", \"finding_ids\": [\"f1\"]}]}"}
+  - {id: X05, expect: SCHEMA, text: "{\"themes\": [{\"title\": \"a\", \"priority\": 1, \"finding_ids\": \"f1\"}]}"}
+  - {id: X06, expect: SCHEMA, text: "{\"themes\": [{\"title\": \"a\", \"priority\": 1, \"finding_ids\": [1, 2]}]}"}
+  - {id: X07, expect: SCHEMA, text: "{\"themes\": [{\"title\": \"a\", \"rank\": 1, \"finding_ids\": [\"f1\"]}]}"}
+  - {id: X08, expect: UNKNOWN_ID, template: three_themes, add_to_first: ["f999"]}
+  - {id: X09, expect: UNKNOWN_ID, template: three_themes, add_to_first: ["F-1a2b3c"]}
+  - {id: X10, expect: DUPLICATE_ID, template: three_themes, duplicate_first_id: true}
+  - {id: X11, expect: MISSING_COVERAGE, template: three_themes, drop_required: 1}
+  - {id: X12, expect: MISSING_COVERAGE, template: three_themes, drop_required: 5}
+  - {id: X13, expect: TOO_MANY_THEMES, template: one_theme_per_finding}
+  - {id: X14, expect: BAD_PRIORITY, template: three_themes, same_priority: true}
+  - {id: X15, expect: NO_THEMES, text: "{\"themes\": []}"}
+  - {id: X16, expect: EMPTY_THEME, template: three_themes, add_empty_theme: true}
+  - {id: X17, expect: PARSE, text: ""}
+  - {id: X18, expect: MISSING_COVERAGE, template: three_themes, drop_new_medium: true}

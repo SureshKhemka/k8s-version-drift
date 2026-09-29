@@ -64,6 +64,7 @@ def _execute(cfg: AppConfig, run_date: str | None, cluster: list[str] | None, mo
     from datetime import date
     from zoneinfo import ZoneInfo
 
+    from drift.chain.runner import PromptChain
     from drift.domain.clock import SystemClock
     from drift.domain.enums import OutputMode
     from drift.pipeline import run_once
@@ -84,7 +85,7 @@ def _execute(cfg: AppConfig, run_date: str | None, cluster: list[str] | None, mo
             clusters=cluster,
             force=force,
             mode=OutputMode(mode) if mode else None,
-            summarizer=None,
+            summarizer=PromptChain(cfg, os.environ) if cfg.llm.enabled else None,
         )
     )
     for err in outcome.errors:

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -34,8 +34,11 @@ class ProviderConfig(_Strict):
     type: Literal["openai_compat", "anthropic"]
     base_url: str
     api_key_env: str | None = None  # CF-3: name of the env var, never the key
-    json_mode: bool = False
+    # LL-3: structured output when the server supports it. "off" = ask for JSON in the prompt only.
+    json_mode: Literal["off", "json_object", "json_schema"] = "off"
     extra_headers: dict[str, str] = Field(default_factory=dict)
+    # Provider-specific request fields merged into every call (e.g. turning off a model's thinking mode).
+    extra_body: dict[str, Any] = Field(default_factory=dict)
 
 
 class StepModelConfig(_Strict):

@@ -1,0 +1,224 @@
+# EV-9: hand-written drafts for Gate 2. Facts come from the seed scenario (night 1 unless `night:` is set).
+# Good drafts must pass. Bad drafts must be rejected with at least the listed error code.
+# A bad draft is usually a good draft with one targeted edit (`base` + `replace`), so it tests exactly one thing.
+budget: 2200
+
+good:
+  - id: G01
+    text: |
+      🔴 9 CRITICAL and 21 HIGH findings across 43 clusters tonight; 4 clusters could not be checked.
+      *Control planes past end of life*
+      • payments-prod-11 (1.28.15, end of life 2026-09-30) and payments-prod-21 (1.29.14, end of life 2026-09-15) in prod: upgrade the control planes.
+      • risk-prod-4 runs 1.30.12, past end of life since 2026-06-28.
+      • identity-dev-4 (1.29.14) and search-staging-1 (1.30.12) also reached end of life; search-staging-1 got worse tonight.
+      *Node pools past end of life*
+      • data-platform-prod-3 legacy-pool runs 1.29.14 on 2 nodes.
+      *Clusters that could not be checked*
+      • identity-prod-5 (auth error (HTTP 401)) and identity-prod-9 (HTTP 500) in prod need API access checks.
+
+  - id: G02
+    text: |
+      🔴 First priority: control planes past end of life in prod.
+      • payments-prod-11 is on 1.28.15 (EOL since Sep 30); its ng-general pool has 4 nodes on the same version.
+      • payments-prod-21 is on 1.29.14 and risk-prod-4 on 1.30.12; both are past end of life.
+      • data-platform-prod-3 still has legacy-pool on 1.29.14.
+      Also past end of life outside prod: identity-dev-4 and search-staging-1.
+      Unreachable in prod: identity-prod-5 and identity-prod-9. Please check API access.
+
+  - id: G03
+    text: |
+      🔴 Drift report: 9 CRITICAL findings need action today.
+      1. Upgrade payments-prod-11, payments-prod-21, risk-prod-4, identity-dev-4 and search-staging-1: all run control planes past end of life.
+      2. Replace the legacy-pool nodes on data-platform-prod-3 (1.29.14, end of life 2026-09-15).
+      3. Restore access to identity-prod-5 and identity-prod-9, which could not be checked.
+
+  - id: G04
+    text: |
+      🔴 Critical drift in 6 clusters.
+      *End of life*
+      • payments-prod-11 — 1.28.15 — end of life 2026-09-30
+      • payments-prod-21 — 1.29.14 — end of life 2026-09-15
+      • risk-prod-4 — 1.30.12 — end of life 2026-06-28
+      • identity-dev-4 — 1.29.14 — end of life 2026-10-01
+      • search-staging-1 — 1.30.12 — end of life 2026-10-02 (worsened tonight)
+      • data-platform-prod-3 / legacy-pool — 1.29.14 — 2 nodes
+      *Not checked*
+      • identity-prod-5 and identity-prod-9 are unreachable.
+
+  - id: G05
+    text: |
+      🔴 4 worsened items tonight plus ongoing critical drift.
+      • search-staging-1 moved from extended support to end of life (1.30.12, 2026-10-02).
+      • checkout-staging-7 is now past end of standard support on 1.31.9.
+      • payments-prod-31 and search-staging-9 reach end of support on 2026-11-01, 30 days away.
+      Still critical: payments-prod-11, payments-prod-21, risk-prod-4, identity-dev-4 and data-platform-prod-3 run versions past end of life.
+      identity-prod-5 and identity-prod-9 could not be checked.
+
+  - id: G06
+    text: |
+      🔴 Prod needs attention: payments-prod-11, payments-prod-21 and risk-prod-4 run control planes past end of life, and data-platform-prod-3 has a node pool past end of life.
+      Outside prod, identity-dev-4 and search-staging-1 are also past end of life.
+      identity-prod-5 and identity-prod-9 are unreachable; check credentials and API health.
+
+  - id: G07
+    text: |
+      🔴 Critical: end-of-life control planes on payments-prod-11 (1.28.15), payments-prod-21 (1.29.14), risk-prod-4 (1.30.12), identity-dev-4 (1.29.14) and search-staging-1 (1.30.12).
+      🟠 Node skew: checkout-prod-12 ng-legacy runs 1.31.9 with 3 nodes, too far behind the control plane.
+      🟠 Newer than control plane: mobile-api-prod-6 canary-pool on 1.34.6.
+      Also: data-platform-prod-3 legacy-pool is past end of life; identity-prod-5 and identity-prod-9 are unreachable.
+
+  - id: G08
+    text: |
+      🔴 76/80 clusters checked, 37 compliant.
+      Past end of life: payments-prod-11, payments-prod-21, risk-prod-4, identity-dev-4, search-staging-1 and data-platform-prod-3.
+      Unreachable: identity-prod-5 (auth error (HTTP 401)), identity-prod-9 (HTTP 500).
+
+  - id: G09
+    text: |
+      🔴 three prod control planes are past end of life: payments-prod-11, payments-prod-21 and risk-prod-4.
+      data-platform-prod-3 has two nodes on 1.29.14 in legacy-pool.
+      identity-dev-4 and search-staging-1 are past end of life too.
+      identity-prod-5 and identity-prod-9 could not be reached.
+
+  - id: G10
+    text: |
+      🔴 Upgrade now: payments-prod-11 (1.28.15 → end of life 2026-09-30).
+      Upgrade now: payments-prod-21 (1.29.14 → end of life 2026-09-15).
+      Upgrade now: risk-prod-4 (1.30.12 → end of life 2026-06-28).
+      Upgrade soon: web-frontend-prod-3 reaches end of standard support on 2026-11-29 (58 days).
+      Also critical: identity-dev-4, search-staging-1, data-platform-prod-3. Unreachable: identity-prod-5, identity-prod-9.
+
+  - id: G11
+    text: |
+      🔴 Worsened tonight: search-staging-1 is now past end of life.
+      New tonight: data-platform-prod-1 reaches end of standard support on 2026-12-01; mobile-api-prod-4 has a mixed ng-general pool (1.34, 1.35) with 4 nodes still on the older minor.
+      Ongoing critical: payments-prod-11, payments-prod-21, risk-prod-4, identity-dev-4, data-platform-prod-3.
+      Unreachable in prod: identity-prod-5, identity-prod-9.
+
+  - id: G12
+    text: |
+      🔴 The most urgent problem is end-of-life software in prod.
+      payments-prod-11, payments-prod-21 and risk-prod-4 need control plane upgrades, and data-platform-prod-3 needs its legacy-pool replaced.
+      identity-dev-4 and search-staging-1 are in the same state outside prod.
+      Two prod clusters, identity-prod-5 and identity-prod-9, could not be checked.
+      Lower priority: platform-lab-dev-1 runs 1.3.0, which is not in the supported-version matrix.
+
+  - id: G13
+    text: |
+      🔴 End of life: payments-prod-11, payments-prod-21, risk-prod-4, identity-dev-4, search-staging-1, data-platform-prod-3.
+      🟠 Unreachable: identity-prod-5, identity-prod-9, data-platform-staging-2, ml-infra-staging-9.
+      🟡 Mixed node pools: risk-prod-1 and mobile-api-prod-4 (ng-general, 1.34 and 1.35).
+
+  - id: G14
+    text: |
+      🔴 Control planes on unknown versions: risk-dev-2 (1.36.0), ml-infra-dev-5 (1.36.1) and platform-lab-dev-1 (1.3.0) are not in the matrix.
+      Critical end of life: payments-prod-11, payments-prod-21, risk-prod-4, identity-dev-4, search-staging-1, data-platform-prod-3.
+      identity-prod-5 and identity-prod-9 are unreachable.
+
+  - id: G15
+    text: |
+      🔴 Critical end-of-life drift on payments-prod-11, payments-prod-21, risk-prod-4, identity-dev-4, search-staging-1 and data-platform-prod-3.
+      Patches: observability-prod-2 is on 1.34.1, behind the latest patch 1.34.6.
+      identity-prod-5 and identity-prod-9 could not be checked.
+
+  - id: G16
+    text: |
+      🔴 Tonight: 48 findings.
+      Past end of life: payments-prod-11, payments-prod-21, risk-prod-4, identity-dev-4, search-staging-1, data-platform-prod-3.
+      Could not be checked: identity-prod-5, identity-prod-9.
+
+  - id: G17
+    text: |
+      🔴 Nodes past end of life: payments-prod-11 ng-general (4 nodes on 1.28.15), payments-prod-21 default-pool (3 nodes), risk-prod-4 workers (3 nodes), data-platform-prod-3 legacy-pool (2 nodes).
+      Control planes past end of life: identity-dev-4, search-staging-1 and the three prod clusters above.
+      identity-prod-5 and identity-prod-9 could not be checked.
+
+  - id: G18
+    night: 3
+    text: |
+      🔴 Critical drift continues on payments-prod-11, payments-prod-21, risk-prod-4, identity-dev-4, search-staging-1 and data-platform-prod-3.
+      search-prod-3, identity-prod-5 and identity-prod-9 could not be checked.
+      Resolved since last run: checkout-prod-2 node pools are no longer behind the control plane, and mobile-api-prod-4 finished its node upgrade.
+
+  - id: G19
+    night: 3
+    text: |
+      🔴 End of life: payments-prod-11, payments-prod-21, risk-prod-4, identity-dev-4, search-staging-1, data-platform-prod-3.
+      New: mobile-api-staging-10 new-pool runs 1.34.6, newer than its control plane (1.33).
+      Unreachable in prod: search-prod-3, identity-prod-5, identity-prod-9.
+      Resolved: checkout-prod-2 (ng-general and ng-batch), mobile-api-prod-4.
+
+  - id: G20
+    night: 3
+    text: |
+      🔴 Prod has three unreachable clusters tonight: search-prod-3, identity-prod-5 and identity-prod-9.
+      End-of-life control planes: payments-prod-11, payments-prod-21, risk-prod-4, identity-dev-4 and search-staging-1; data-platform-prod-3 legacy-pool is also past end of life.
+      checkout-prod-2 is fully upgraded; its skew findings are resolved.
+
+  - id: G21
+    text: |
+      🔴 *Kubernetes drift*: critical items on payments-prod-11, payments-prod-21, risk-prod-4, identity-dev-4, search-staging-1 and data-platform-prod-3.
+      _Unreachable_: identity-prod-5 and identity-prod-9.
+      _Skew_: payments-staging-8 batch-pool (1.30.12) is too far behind; the oldest allowed minor is 1.31.
+
+bad:
+  # ---------------------------------------------------------------- wrong version
+  - {id: B01, category: wrong version, base: G01, replace: [["(1.28.15, end", "(1.28.14, end"]], expect: VERSION_NOT_IN_FACTS}
+  - {id: B02, category: wrong version, base: G01, replace: [["risk-prod-4 runs 1.30.12", "risk-prod-4 runs 1.30.11"]], expect: VERSION_NOT_IN_FACTS}
+  - {id: B03, category: wrong version, base: G15, replace: [["latest patch 1.34.6", "latest patch 1.34.7"]], expect: VERSION_NOT_IN_FACTS}
+  - {id: B04, category: wrong version, base: G14, replace: [["(1.36.0)", "(1.37.0)"]], expect: VERSION_NOT_IN_FACTS}
+  - {id: B05, category: wrong version, base: G21, replace: [["minor is 1.31.", "minor is 1.29."]], expect: CONTEXT_MISMATCH}
+  # ------------------------------------------------------ look-alike versions
+  - {id: B06, category: look-alike version, base: G12, replace: [["runs 1.3.0", "runs 1.30"]], note: "1.30 exists in facts but not for platform-lab-dev-1", expect_any: [VERSION_NOT_IN_FACTS, CONTEXT_MISMATCH]}
+  - {id: B07, category: look-alike version, base: G01, replace: [["search-staging-1 (1.30.12)", "search-staging-1 (1.3)"]], expect: CONTEXT_MISMATCH}
+  - {id: B08, category: look-alike version, base: G11, replace: [["(1.34, 1.35)", "(1.3, 1.35)"]], expect_any: [VERSION_NOT_IN_FACTS, CONTEXT_MISMATCH]}
+  # ---------------------------------------------------------- invented cluster
+  - {id: B09, category: invented cluster, base: G06, replace: [["and risk-prod-4 run", "risk-prod-4 and risk-prod-5 run"]], expect: UNKNOWN_CLUSTER}
+  - {id: B10, category: invented cluster, base: G13, replace: [["ml-infra-staging-9.", "ml-infra-staging-19."]], expect: UNKNOWN_CLUSTER}
+  - {id: B11, category: invented cluster, base: G08, replace: [["identity-prod-9 (HTTP 500)", "identity-prod-99 (HTTP 500)"]], expect: UNKNOWN_CLUSTER}
+  - {id: B12, category: invented cluster, base: G03, replace: [["payments-prod-21,", "billing-prod-2,"]], expect_any: [UNKNOWN_CLUSTER, MISSING_REQUIRED_CLUSTER]}
+  # ------------------------------------------------------- look-alike clusters
+  - {id: B13, category: look-alike cluster, base: G01, replace: [["• payments-prod-11 (1.28.15", "• payments-prod-1 (1.28.15"]], expect_any: [CLUSTER_WITHOUT_FINDINGS, MISSING_REQUIRED_CLUSTER]}
+  - {id: B14, category: look-alike cluster, base: G02, replace: [["payments-prod-21 is on", "payments-prod-2 is on"]], expect_any: [UNKNOWN_CLUSTER, MISSING_REQUIRED_CLUSTER]}
+  - {id: B15, category: look-alike cluster, base: G08, replace: [["identity-prod-5 (auth", "identity-prod-4 (auth"]], expect_any: [UNKNOWN_CLUSTER, MISSING_REQUIRED_CLUSTER]}
+  - {id: B16, category: look-alike cluster, base: G04, replace: [["• risk-prod-4 —", "• risk-prod-1 —"]], expect_any: [CONTEXT_MISMATCH, MISSING_REQUIRED_CLUSTER]}
+  # ----------------------------------------------------------------- wrong count
+  - {id: B17, category: wrong count, base: G01, replace: [["9 CRITICAL", "10 CRITICAL"]], expect: COUNT_MISMATCH}
+  - {id: B18, category: wrong count, base: G01, replace: [["across 43 clusters", "across 44 clusters"]], expect: COUNT_MISMATCH}
+  - {id: B19, category: wrong count, base: G01, replace: [["4 clusters could not", "5 clusters could not"]], expect: COUNT_MISMATCH}
+  - {id: B20, category: wrong count, base: G08, replace: [["76/80 clusters", "77/80 clusters"]], expect: COUNT_MISMATCH}
+  - {id: B21, category: wrong count, base: G08, replace: [["37 compliant", "36 compliant"]], expect: COUNT_MISMATCH}
+  - {id: B22, category: wrong count, base: G16, replace: [["48 findings", "47 findings"]], expect: COUNT_MISMATCH}
+  - {id: B23, category: wrong count, base: G17, replace: [["(4 nodes on 1.28.15)", "(6 nodes on 1.28.15)"]], expect: COUNT_MISMATCH}
+  - {id: B24, category: wrong count, base: G10, replace: [["(58 days)", "(57 days)"]], expect: COUNT_MISMATCH}
+  - {id: B25, category: wrong count, base: G05, replace: [["4 worsened items", "5 worsened items"]], expect: COUNT_MISMATCH}
+  - {id: B26, category: wrong count, base: G09, replace: [["has two nodes", "has five nodes"]], expect: COUNT_MISMATCH}
+  # --------------------------------------------------------------- wrong date
+  - {id: B27, category: wrong date, base: G01, replace: [["end of life 2026-09-30", "end of life 2026-09-29"]], expect: DATE_NOT_IN_FACTS}
+  - {id: B28, category: wrong date, base: G02, replace: [["(EOL since Sep 30)", "(EOL since Sep 20)"]], expect: DATE_NOT_IN_FACTS}
+  - {id: B29, category: wrong date, base: G10, replace: [["on 2026-11-29", "on 2026-11-30"]], expect: CONTEXT_MISMATCH}
+  # ---------------------------------------------------- missing critical cluster
+  - {id: B30, category: missing critical, base: G06, replace: [["payments-prod-11, ", ""]], expect: MISSING_REQUIRED_CLUSTER}
+  - {id: B31, category: missing critical, base: G06, replace: [["identity-prod-5 and identity-prod-9 are", "identity-prod-9 is"]], expect: MISSING_REQUIRED_CLUSTER}
+  - {id: B32, category: missing critical, base: G13, replace: [["search-staging-1, ", ""]], expect: MISSING_REQUIRED_CLUSTER}
+  - {id: B33, category: missing critical, night: 3, base: G19, replace: [["search-prod-3, ", ""]], expect: MISSING_REQUIRED_CLUSTER}
+  # --------------------------------------------------------- context mismatch
+  - {id: B34, category: context, base: G08, replace: [["Unreachable: identity-prod-5", "Unreachable: payments-prod-11, identity-prod-5"]], expect: CONTEXT_MISMATCH}
+  - {id: B35, category: context, base: G07, replace: [["canary-pool on 1.34.6", "canary-pool on 1.35.4"]], expect: CONTEXT_MISMATCH}
+  - {id: B36, category: context, base: G13, replace: [["risk-prod-1 and mobile-api-prod-4", "risk-prod-1 and checkout-prod-12"]], expect: CONTEXT_MISMATCH}
+  - {id: B37, category: context, base: G12, replace: [["platform-lab-dev-1 runs 1.3.0", "platform-lab-dev-1 runs 1.3.0 and is unreachable"]], expect: CONTEXT_MISMATCH}
+  - {id: B38, category: context, base: G07, replace: [["mobile-api-prod-6 canary-pool", "mobile-api-prod-6 CRITICAL canary-pool"]], expect: CONTEXT_MISMATCH}
+  # ------------------------------------------------------- compliant / internal
+  - {id: B39, category: compliant cluster, base: G06, replace: [["Outside prod,", "payments-prod-1 is fine. Outside prod,"]], expect: CLUSTER_WITHOUT_FINDINGS}
+  - {id: B40, category: internal id, base: G04, replace: [["• payments-prod-11 —", "• payments-prod-11 (f1) —"]], expect: INTERNAL_ID}
+  - {id: B41, category: internal id, base: G06, replace: [["risk-prod-4 run", "risk-prod-4 (c062) run"]], expect: INTERNAL_ID}
+  # ---------------------------------------------------------------- over length
+  - {id: B42, category: over length, base: G01, append_repeat: ["\n• payments-prod-11 still needs an upgrade.", 60], expect: TOO_LONG}
+  - {id: B43, category: over length, base: G06, append_repeat: [" Please act on this.", 120], expect: TOO_LONG}
+  # ------------------------------------------------------------ leaked endpoint
+  - {id: B44, category: leaked endpoint, base: G06, replace: [["check credentials and API health.", "check https://a1b2c3.gr7.us-east-1.eks.amazonaws.com."]], expect: DENY_LIST}
+  - {id: B45, category: leaked endpoint, base: G06, replace: [["check credentials and API health.", "check the API at 10.20.30.40:6443."]], expect: DENY_LIST}
+  - {id: B46, category: leaked secret, base: G06, replace: [["check credentials and API health.", "the token: eyJhbGciOiJSUzI1NiIsImtpZCI6 is expired."]], expect: DENY_LIST}
+  - {id: B47, category: leaked account, base: G06, replace: [["check credentials and API health.", "check account 123456789012."]], expect: DENY_LIST}
+  # ------------------------------------------------------------------- empty
+  - {id: B48, category: empty, text: "   \n", expect: EMPTY}

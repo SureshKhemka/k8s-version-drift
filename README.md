@@ -101,5 +101,46 @@ uv run pytest evals          # hard gates: must be 100%
 | EV-6 | No secret value, endpoint or deny-listed string in messages, outbox, run records, SQLite or logs |
 | EV-7 | A message is posted when the LLM is down, when every chain step fails, and on a flaky channel |
 | EV-8 | A run date is posted once unless `--force`; a failed post does not block a retry |
+| EV-3 | Every posted message passes Gate 2 against that run's own findings |
+| EV-9 | 48 hand-written bad drafts are all rejected by Gate 2 (with the right reason); 21 good drafts all pass |
+| EV-10 | 18 bad Step-1 outputs are all rejected by Gate 1; good ones pass |
 
-_More sections (running a night, evals, switching LLM provider) are added as milestones land._
+The gate sets live in `evals/gate_sets/`. A bad draft is usually a good draft with one targeted edit, so each
+case tests exactly one failure (wrong version, look-alike name, wrong count, missing critical cluster, …).
+
+## The LLM summary (prompt chain)
+
+`drift run` summarises with a fixed three-step chain; code checks every step and nothing unchecked is posted:
+
+1. **group** (`prompts/group_v1.md.j2`) → JSON themes → **Gate 1**: schema, IDs exist, no duplicates, every
+   CRITICAL/HIGH and NEW/WORSENED ≥ MEDIUM finding covered, theme limit.
+2. **draft** (`prompts/draft_v1.md.j2`) → message text → **Gate 2**: every cluster name, version, date and
+   count is checked against the findings (and against the clusters it is written next to), required clusters
+   named, length, deny-list.
+3. **shorten** (`prompts/shorten_v1.md.j2`) only if the draft failed on length alone; Gate 2 re-runs in full.
+
+Failed gates are retried (`chain.gate_retries`) with the exact errors fed back. After that, or if the LLM is
+unreachable, the code-built fallback is posted. Every call, prompt version, output and gate result is in the
+run record.
+
+## Switching LLM provider
+
+Providers and per-step models are configuration only (`llm.*` in `config/defaults.yaml`):
+
+```bash
+# another local server (Ollama)
+export DRIFT__LLM__DEFAULT__PROVIDER=ollama DRIFT__LLM__DEFAULT__MODEL=gemma4:31b
+# OpenRouter (OpenAI-compatible)
+export DRIFT__LLM__DEFAULT__PROVIDER=openrouter DRIFT__LLM__DEFAULT__MODEL=qwen/qwen3-235b-a22b OPENROUTER_API_KEY=...
+# Anthropic (native provider type)
+export DRIFT__LLM__DEFAULT__PROVIDER=anthropic DRIFT__LLM__DEFAULT__MODEL=claude-sonnet-5-5 ANTHROPIC_API_KEY=...
+# a different model for one step only
+export DRIFT__LLM__STEPS__DRAFT__MODEL=google/gemma-4-31b
+# no LLM at all (fallback only)
+export DRIFT__LLM__ENABLED=false
+```
+
+Model-specific request switches go in the provider's `extra_body` (the local Qwen needs
+`reasoning_effort: "none"`, see D36). Set `price_in_per_mtok`/`price_out_per_mtok` to get cost estimates.
+
+_More sections (eval reports, replay mode, model comparison) are added in M7._

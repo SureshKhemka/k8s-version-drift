@@ -2,33 +2,36 @@
 # Secrets never live here (CF-3): only the *names* of env vars that hold them.
 
 llm:
-  enabled: false                # switched on in M6 when the prompt chain lands
+  enabled: true
   providers:
     lmstudio:
       type: openai_compat
       base_url: http://127.0.0.1:1234/v1
       api_key_env: null
-      json_mode: true
+      json_mode: "off"          # LM Studio + qwen3.8 puts json_schema output in the reasoning channel (D34)
+      extra_body:               # model-specific switch: qwen3.8 on LM Studio thinks for minutes otherwise (D36)
+        reasoning_effort: "none"
     ollama:
       type: openai_compat
       base_url: http://127.0.0.1:11434/v1
       api_key_env: null
-      json_mode: true
+      json_mode: json_object
     openrouter:
       type: openai_compat
       base_url: https://openrouter.ai/api/v1
       api_key_env: OPENROUTER_API_KEY
-      json_mode: true
+      json_mode: json_object
     anthropic:
       type: anthropic
       base_url: https://api.anthropic.com
       api_key_env: ANTHROPIC_API_KEY
+      json_mode: "off"
   default:                      # CH-7: every step uses this unless overridden below
     provider: lmstudio
     model: qwen/qwen3.8-27b
     temperature: 0.2
     max_tokens: 4096
-    timeout_s: 180
+    timeout_s: 600               # a local 27B model reading ~5k tokens can take minutes
     retries: 1
     price_in_per_mtok: 0.0      # LL-5: local = free
     price_out_per_mtok: 0.0

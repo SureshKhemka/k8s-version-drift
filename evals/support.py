@@ -202,3 +202,29 @@ async def run_pipeline_night(env: PipelineEnv, night: int, **kwargs: Any):  # ty
         channel_transport=env.channel_transport,
         **kwargs,
     )
+
+
+# ------------------------------------------------------------------------------------ fact sheets
+
+_SHEETS: dict[int, Any] = {}
+
+
+async def fact_sheet(night: int):  # type: ignore[no-untyped-def]
+    """The Gate 2 fact sheet for a scenario night (nights before it are replayed for change tags)."""
+    import tempfile
+
+    from drift.chain.facts import FactSheet
+    from drift.message.compose import RunFacts
+
+    if night not in _SHEETS:
+        cfg = eval_config()
+        async for run, changes, _ in run_sequence(Path(tempfile.mkdtemp()), nights=tuple(range(night + 1))):
+            facts = RunFacts.build(f"eval-{night}", run.run_date, run.detection, changes, run.matrix.version)
+            _SHEETS[run.night] = FactSheet.build(
+                facts,
+                changes,
+                [c.name for c in run.inventory.clusters],
+                [c.id for c in run.inventory.clusters],
+                cfg.channel.mentions.on_critical,
+            )
+    return _SHEETS[night]

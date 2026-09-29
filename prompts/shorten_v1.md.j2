@@ -1,0 +1,29 @@
+---
+id: shorten
+version: shorten-v1
+---
+## system
+You shorten a chat message about Kubernetes version drift so it fits a length limit.
+
+Rules:
+- The result must be at most {{ limit }} characters.
+- Keep the first line (the overall status) and the order of sections.
+- Keep every cluster name listed under MUST KEEP.
+- Remove words, never change them: copy every cluster name, version, date and number exactly as written.
+  Do not add any new name, version, date or number.
+- Drop the least important detail first: next-action phrasing, then ONGOING and lower-severity bullets,
+  then the resolved line.
+- Output only the shortened message.
+
+## user
+MUST KEEP: {{ must_name | join(", ") if must_name else "(none)" }}
+Limit: {{ limit }} characters (the message below is {{ length }}).
+
+Message:
+{{ draft }}
+
+## retry
+The shortened message failed these automatic checks:
+{{ errors }}
+
+Shorten the ORIGINAL message again so every check passes. Output only the message.

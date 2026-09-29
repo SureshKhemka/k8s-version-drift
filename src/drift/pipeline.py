@@ -15,6 +15,8 @@ from typing import Protocol
 
 import httpx
 
+from drift.chain.facts import FactSheet
+from drift.chain.gates import gate2
 from drift.collect.collector import Collector
 from drift.collect.sources import SourceError, load_inventory, load_matrix, select
 from drift.config import AppConfig, masked_dump
@@ -52,6 +54,7 @@ class SummaryRequest:
     changes: ChangeSet
     fmt: Fmt
     body_budget: int  # characters the body may use (CH-4 length check)
+    sheet: FactSheet  # the only facts the chain may use
 
 
 @dataclass(frozen=True)
@@ -210,6 +213,9 @@ async def run_once(
         facts = RunFacts.build(run_id, run_date, det, changes, matrix.version)
         mentions = mentions_line(det.findings, cfg.channel.mentions.on_critical)
         appx = appendix(det.findings, fmt)
+        sheet = FactSheet.build(
+            facts, changes, [c.name for c in selected], [c.id for c in selected], cfg.channel.mentions.on_critical
+        )
         source: SummarySource
         model: str | None = None
         if is_all_clear(det.findings):
@@ -218,9 +224,8 @@ async def run_once(
             source, body = "fallback", fallback_body(facts, fmt)
             if summarizer is not None and cfg.llm.enabled:
                 foot_probe = footer(facts, "llm", fmt, cfg.llm.for_step("draft").model)
-                req = SummaryRequest(
-                    facts, det, changes, fmt, body_budget(cfg.channel.max_length, mentions, appx, foot_probe)
-                )
+                budget = body_budget(cfg.channel.max_length, mentions, appx, foot_probe)
+                req = SummaryRequest(facts, det, changes, fmt, budget, sheet)
                 try:
                     result = await summarizer.summarize(req, rec)
                 except Exception as exc:
@@ -228,8 +233,36 @@ async def run_once(
                     result = None
                 if result is not None:
                     source, body, model = "llm", result.body, result.model
-        foot = footer(facts, source, fmt, model)
-        message, hits = scrub(assemble(mentions, body, appx, foot), cfg.deny_list)
+
+        def build(src: SummarySource, text: str, mdl: str | None) -> tuple[str, list[str]]:
+            return scrub(assemble(mentions, text, appx, footer(facts, src, fmt, mdl)), cfg.deny_list)
+
+        message, hits = build(source, body, model)
+        # Final Gate 2 on the whole message (FR-22). The length limit is waived only when the code-built
+        # parts alone exceed it (D29). An LLM message that fails here is replaced by the fallback.
+        fixed = len(assemble(mentions, "", appx, footer(facts, source, fmt, model)))
+        final = gate2.check(
+            message,
+            sheet,
+            max_length=cfg.channel.max_length if fixed < cfg.channel.max_length else None,
+            deny_list=cfg.deny_list,
+        )
+        rec.event(
+            "compose",
+            "final_gate",
+            {"source": source, "passed": final.passed, "errors": [str(e) for e in final.errors]},
+        )
+        if not final.passed and source == "llm":
+            source, model = "fallback", None
+            message, hits = build(source, fallback_body(facts, fmt), None)
+            final = gate2.check(message, sheet, max_length=None, deny_list=cfg.deny_list)
+            rec.event(
+                "compose",
+                "final_gate",
+                {"source": source, "passed": final.passed, "errors": [str(e) for e in final.errors]},
+            )
+        if not final.passed:
+            log.error("code-built message failed the final gate: %s", "; ".join(map(str, final.errors)))
         rec.event(
             "compose", "message", {"source": source, "length": len(message), "deny_list_hits": hits, "text": message}
         )
