@@ -163,7 +163,7 @@ class Store:
         """Latest run with completed detection whose run date is strictly before ``before`` (D6, D27)."""
         row = self._conn.execute(
             "SELECT run_id FROM runs WHERE detection_complete=1 AND run_date < ? "
-            "ORDER BY run_date DESC, started_at DESC LIMIT 1",
+            "ORDER BY run_date DESC, started_at DESC, rowid DESC LIMIT 1",
             (before.isoformat(),),
         ).fetchone()
         if row is None:
@@ -183,13 +183,18 @@ class Store:
     # --------------------------------------------------------------------------- history
 
     def history(self, cluster: str, since: date | None = None) -> list[dict[str, Any]]:
-        """FR-33: findings over time for one cluster (by ID)."""
-        q = "SELECT run_id, run_date, rule, subject, severity, tag, finding FROM findings_history WHERE cluster_id=?"
+        """FR-33: findings over time for one cluster (by ID). Only the latest completed run of each date
+        counts: re-running a date replaces that date's record (FR-26)."""
+        q = (
+            "SELECT h.run_id, h.run_date, h.rule, h.subject, h.severity, h.tag, h.finding FROM findings_history h "
+            "WHERE h.cluster_id=? AND h.run_id = (SELECT r.run_id FROM runs r WHERE r.run_date = h.run_date "
+            "AND r.detection_complete=1 ORDER BY r.started_at DESC, r.rowid DESC LIMIT 1)"
+        )
         args: list[Any] = [cluster]
         if since:
-            q += " AND run_date >= ?"
+            q += " AND h.run_date >= ?"
             args.append(since.isoformat())
-        rows = self._conn.execute(q + " ORDER BY run_date, rowid", args).fetchall()
+        rows = self._conn.execute(q + " ORDER BY h.run_date, h.rowid", args).fetchall()
         return [dict(r) | {"finding": json.loads(r["finding"])} for r in rows]
 
     def prune(self, today: date, retention_days: int) -> int:

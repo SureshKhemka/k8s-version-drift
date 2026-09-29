@@ -111,7 +111,9 @@ def test_missing_rule_severity_rejected(tmp_path):
 
 
 def test_validate_runtime_reports_all_problems(tmp_path):
-    d = _cfg_dir(tmp_path, {"output": {"mode": "POST"}, "clusters": {"token_env": "K8S_TOKEN"}})
+    d = _cfg_dir(
+        tmp_path, {"output": {"mode": "POST"}, "clusters": {"token_env": "K8S_TOKEN"}, "llm": {"enabled": True}}
+    )
     cfg = load_config(d, environ={})
     with pytest.raises(ConfigError) as exc:
         validate_runtime(cfg, environ={})

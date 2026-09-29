@@ -79,13 +79,13 @@ class Recorder:
     def __init__(self, store: Store, run_id: str, runs_dir: Path, clock: Clock, redactor: Redactor) -> None:
         self.store = store
         self.run_id = run_id
-        self._clock = clock
+        self.clock = clock
         self._redactor = redactor
         runs_dir.mkdir(parents=True, exist_ok=True)
         self.path = runs_dir / f"{run_id}.jsonl"
 
     def event(self, step_id: str, kind: str, payload: Any) -> None:
-        ts = self._clock.now().isoformat(timespec="milliseconds")
+        ts = self.clock.now().isoformat(timespec="milliseconds")
         body = self._redactor.text(json.dumps(_jsonable(payload), sort_keys=True, default=str))
         self.store.append_event(self.run_id, step_id, kind, ts, body)
         line = json.dumps({"run_id": self.run_id, "step_id": step_id, "kind": kind, "ts": ts})

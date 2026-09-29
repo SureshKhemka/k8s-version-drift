@@ -153,6 +153,9 @@ def test_history_per_cluster(store):
     h = store.history("a")
     assert [(r["run_date"], r["tag"]) for r in h] == [("2026-10-01", "NEW"), ("2026-10-02", "RESOLVED")]
     assert store.history("a", since=date(2026, 10, 2))[0]["tag"] == "RESOLVED"
+    # a re-run of 10-02 replaces that date's record
+    _save(store, "r2b", date(2026, 10, 2), [F("a", Rule.CP_EOL)])
+    assert [(r["run_id"], r["tag"]) for r in store.history("a")] == [("r1", "NEW"), ("r2b", "ONGOING")]
 
 
 def test_events_are_append_only(store):

@@ -2,7 +2,7 @@
 # Secrets never live here (CF-3): only the *names* of env vars that hold them.
 
 llm:
-  enabled: true
+  enabled: false                # switched on in M6 when the prompt chain lands
   providers:
     lmstudio:
       type: openai_compat

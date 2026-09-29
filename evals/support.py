@@ -121,3 +121,84 @@ async def run_sequence(tmp: Path, nights: tuple[int, ...] = NIGHTS):  # type: ig
             yield run, changes, store
     finally:
         store.close()
+
+
+# ------------------------------------------------------------------------------ full pipeline runs
+
+EVAL_SECRETS = {
+    "K8S_TOKEN": "k8s-token-DO-NOT-LEAK-5f1e",
+    "DRIFT_CHANNEL_WEBHOOK_URL": "http://channel.mock/webhook/T-SECRET-HOOK-9a7c",
+    "OPENROUTER_API_KEY": "sk-or-DO-NOT-LEAK-77aa",
+}
+
+
+@dataclass
+class PipelineEnv:
+    """A fully wired, in-process world: mock k8s + mock channel + store paths under ``root``."""
+
+    root: Path
+    cfg: AppConfig
+    k8s: K8sMockState
+    channel: Any  # ChannelMockState
+    environ: dict[str, str]
+
+    def __post_init__(self) -> None:
+        from drift_mocks.channel import create_app as channel_app
+
+        self._k8s_app = create_app(self.k8s)
+        self._channel_app = channel_app(self.channel)
+
+    def k8s_transport(self) -> httpx.AsyncBaseTransport:
+        return httpx.ASGITransport(app=self._k8s_app)
+
+    def channel_transport(self) -> httpx.AsyncBaseTransport:
+        return httpx.ASGITransport(app=self._channel_app)
+
+    def messages(self) -> list[str]:
+        return [m["text"] for m in self.channel.messages()]
+
+    def with_cfg(self, **updates: Any) -> PipelineEnv:
+        """Same world, config sections replaced (e.g. ``llm=...``). Shares mocks, store and outbox."""
+        env = PipelineEnv(self.root, self.cfg.model_copy(update=updates), self.k8s, self.channel, self.environ)
+        return env
+
+
+def pipeline_env(root: Path) -> PipelineEnv:
+    from drift.domain.enums import OutputMode
+    from drift_mocks.channel import ChannelMockState
+
+    base = eval_config()
+    k8s = K8sMockState(SEED, root / "mocks", None, timeout_sleep_s=30)
+    channel = ChannelMockState(root / "mocks", None, timeout_sleep_s=30)
+    cfg = base.model_copy(
+        update={
+            "sources": base.sources.model_copy(
+                update={"inventory": SourceConfig(type="file", path=k8s.inventory_path)}
+            ),
+            "storage": base.storage.model_copy(update={"db_path": root / "drift.db", "runs_dir": root / "runs"}),
+            "output": base.output.model_copy(update={"outbox_dir": root / "outbox", "mode": OutputMode.POST}),
+            "clusters": base.clusters.model_copy(
+                update={"token_env": "K8S_TOKEN", "endpoint_template": "http://k8s.mock/clusters/{id}"}
+            ),
+        }
+    )
+    return PipelineEnv(root, cfg, k8s, channel, dict(EVAL_SECRETS))
+
+
+async def run_pipeline_night(env: PipelineEnv, night: int, **kwargs: Any):  # type: ignore[no-untyped-def]
+    """One full ``run_once`` for a scenario night, with a fixed clock (EV-17)."""
+    from drift.domain.clock import FixedClock
+    from drift.pipeline import run_once
+
+    if env.k8s.world.night != night:
+        env.k8s.set_night(night)
+    day = night_date(night)
+    return await run_once(
+        env.cfg,
+        clock=FixedClock.on(day),
+        run_date=day,
+        environ=env.environ,
+        k8s_transport=env.k8s_transport,
+        channel_transport=env.channel_transport,
+        **kwargs,
+    )

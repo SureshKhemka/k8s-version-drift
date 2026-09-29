@@ -9,7 +9,7 @@ from typing import Annotated
 import typer
 
 from drift.config import AppConfig, ConfigError, load_config, masked_dump, validate_runtime
-from drift.domain.enums import ExitCode
+from drift.domain.enums import ExitCode, OutputMode
 
 app = typer.Typer(no_args_is_help=True, add_completion=False)
 config_app = typer.Typer(no_args_is_help=True, help="Inspect and validate configuration.")
@@ -42,6 +42,118 @@ def config_check(config_dir: ConfigDirOpt = None, env: EnvOpt = None) -> None:
     """Validate configuration, including files and env vars it refers to."""
     _load(config_dir, env)
     typer.echo("configuration OK")
+
+
+# ------------------------------------------------------------------------------------------------ run
+
+
+def _start_logging(cfg: AppConfig) -> None:
+    import os
+
+    from drift.logs import setup
+    from drift.store.recorder import Redactor
+
+    names = [cfg.clusters.token_env, cfg.channel.webhook_url_env, *(p.api_key_env for p in cfg.llm.providers.values())]
+    setup(cfg.logging.level, Redactor.from_env(names, os.environ, cfg.deny_list))
+
+
+def _execute(cfg: AppConfig, run_date: str | None, cluster: list[str] | None, mode: str | None, force: bool) -> int:
+    import asyncio
+    import logging
+    import os
+    from datetime import date
+    from zoneinfo import ZoneInfo
+
+    from drift.domain.clock import SystemClock
+    from drift.domain.enums import OutputMode
+    from drift.pipeline import run_once
+
+    clock = SystemClock(ZoneInfo(cfg.schedule.timezone))
+    try:
+        day = date.fromisoformat(run_date) if run_date else None
+    except ValueError:
+        typer.echo(f"invalid --date {run_date!r}", err=True)
+        return int(ExitCode.CONFIG_ERROR)
+    logging.getLogger("drift").info("effective config: %s", json.dumps(masked_dump(cfg)))
+    outcome = asyncio.run(
+        run_once(
+            cfg,
+            clock=clock,
+            run_date=day,
+            environ=os.environ,
+            clusters=cluster,
+            force=force,
+            mode=OutputMode(mode) if mode else None,
+            summarizer=None,
+        )
+    )
+    for err in outcome.errors:
+        typer.echo(err, err=True)
+    if outcome.message is not None:
+        typer.echo(outcome.message)
+        typer.echo(
+            f"\n[{outcome.status}] exit={int(outcome.exit_code)} run_id={outcome.run_id} "
+            f"summary={outcome.summary_source} post={outcome.post.status if outcome.post else None}",
+            err=True,
+        )
+    return int(outcome.exit_code)
+
+
+@app.command("run")
+def run_cmd(
+    run_date: Annotated[
+        str | None, typer.Option("--date", help="Run date YYYY-MM-DD (default: today in schedule tz)")
+    ] = None,
+    cluster: Annotated[
+        list[str] | None, typer.Option("--cluster", "-c", help="Subset (always DRY_RUN); repeatable")
+    ] = None,
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="Force DRY_RUN")] = False,
+    post: Annotated[bool, typer.Option("--post", help="Force POST")] = False,
+    force: Annotated[bool, typer.Option("--force", help="Post even if this run date was already posted")] = False,
+    config_dir: ConfigDirOpt = None,
+    env: EnvOpt = None,
+) -> None:
+    """Run one night on demand (FR-28). Exit codes: 0 ok, 10 fallback, 20 partial, 30 post failed, 40 config."""
+    if dry_run and post:
+        typer.echo("--dry-run and --post are mutually exclusive", err=True)
+        raise typer.Exit(ExitCode.CONFIG_ERROR)
+    mode = "DRY_RUN" if dry_run else "POST" if post else None
+    cfg = _load(config_dir, env, runtime=False)
+    if mode:
+        cfg = cfg.model_copy(update={"output": cfg.output.model_copy(update={"mode": OutputMode(mode)})})
+    try:
+        validate_runtime(cfg)
+    except ConfigError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(ExitCode.CONFIG_ERROR) from exc
+    _start_logging(cfg)
+    raise typer.Exit(_execute(cfg, run_date, cluster, None, force))
+
+
+@app.command("schedule")
+def schedule_cmd(config_dir: ConfigDirOpt = None, env: EnvOpt = None) -> None:
+    """Run nightly on the configured cron schedule and time zone (FR-28). Foreground; Ctrl-C to stop."""
+    from apscheduler.schedulers.blocking import BlockingScheduler  # type: ignore[import-untyped]
+    from apscheduler.triggers.cron import CronTrigger  # type: ignore[import-untyped]
+
+    cfg = _load(config_dir, env)
+    _start_logging(cfg)
+    scheduler = BlockingScheduler(timezone=cfg.schedule.timezone)
+    trigger = CronTrigger.from_crontab(cfg.schedule.cron, timezone=cfg.schedule.timezone)
+
+    def job() -> None:
+        # Re-read configuration each night so edits apply without a restart.
+        fresh = _load(config_dir, env)
+        code = _execute(fresh, None, None, None, False)
+        typer.echo(f"scheduled run finished with exit code {code}", err=True)
+
+    scheduler.add_job(job, trigger, id="nightly", max_instances=1, coalesce=True)
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    nxt = trigger.get_next_fire_time(None, datetime.now(ZoneInfo(cfg.schedule.timezone)))
+    typer.echo(f"scheduled '{cfg.schedule.cron}' in {cfg.schedule.timezone}; next run {nxt}")
+    scheduler.start()
 
 
 # -------------------------------------------------------------------------------------------- collect
