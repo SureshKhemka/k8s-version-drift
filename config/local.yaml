@@ -1,0 +1,2 @@
+# Overlay for DRIFT_ENV=local (the default). Only differences from defaults.yaml go here.
+{}

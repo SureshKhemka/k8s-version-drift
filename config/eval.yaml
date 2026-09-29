@@ -1,0 +1,7 @@
+# Overlay for DRIFT_ENV=eval: fast, deterministic runs against the mocks.
+clusters:
+  timeout_s: 1
+  retry_backoff_s: 0.0
+  time_budget_s: 20
+output:
+  post_retry_backoff_s: 0.0
