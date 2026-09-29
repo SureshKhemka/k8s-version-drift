@@ -57,4 +57,21 @@ uv run drift collect -c c003 -c payments-prod-11 --json   # subset, raw fetch re
 Access is GET-only, enforced by the client and again by the HTTP transport. Concurrency, per-attempt timeout,
 retries and the overall time budget come from `clusters.*` in config.
 
+## Drift findings (deterministic)
+
+```bash
+uv run drift detect --date 2026-10-02     # collect + evaluate every FR-11 rule, print findings
+```
+
+Rules live in `src/drift/rules/` (no LLM). Severities per rule and environment come from `policy.severities`.
+
+## Evals
+
+```bash
+uv run pytest evals          # hard gates (EV-1 so far): must be 100%
+```
+
+EV-1 runs the real collector against the mock API for each scenario night and compares every finding field
+with the hand-written expectations in `evals/expected/`.
+
 _More sections (running a night, evals, switching LLM provider) are added as milestones land._

@@ -89,6 +89,57 @@ def collect_cmd(
     typer.echo(f"\n{ok}/{len(results)} clusters reachable", err=True)
 
 
+@app.command("detect")
+def detect_cmd(
+    run_date: Annotated[
+        str | None, typer.Option("--date", help="Run date YYYY-MM-DD (default: today in schedule tz)")
+    ] = None,
+    cluster: Annotated[list[str] | None, typer.Option("--cluster", "-c", help="Cluster ID or name; repeatable")] = None,
+    config_dir: ConfigDirOpt = None,
+    env: EnvOpt = None,
+) -> None:
+    """Collect and evaluate drift rules; print findings (no LLM, no posting)."""
+    import asyncio
+    from datetime import date
+    from zoneinfo import ZoneInfo
+
+    from drift.collect.collector import Collector
+    from drift.collect.sources import SourceError, load_inventory, load_matrix, select
+    from drift.domain.clock import SystemClock
+    from drift.rules.engine import detect
+
+    cfg = _load(config_dir, env, runtime=False)
+    try:
+        inventory = load_inventory(cfg.sources.inventory)
+        matrix = load_matrix(cfg.sources.matrix)
+        clusters = select(inventory, cluster)
+        day = date.fromisoformat(run_date) if run_date else SystemClock(ZoneInfo(cfg.schedule.timezone)).now().date()
+    except (SourceError, ValueError) as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(ExitCode.CONFIG_ERROR) from exc
+    results = asyncio.run(Collector(cfg.clusters).collect(clusters))
+    det = detect(clusters, results, matrix, cfg.policy, day)
+    for f in det.findings:
+        extra = " ".join(
+            part
+            for part in (
+                f"limit={f.limit}" if f.limit else "",
+                f"days={f.days_remaining}" if f.days_remaining is not None else "",
+                f"nodes={f.nodes_affected}" if f.nodes_affected is not None else "",
+            )
+            if part
+        )
+        typer.echo(
+            f"{f.severity.name:<8} {f.rule.value:<20} {f.cluster_name:<26} {f.subject:<14} {f.observed:<16} {extra}"
+        )
+    counts = ", ".join(f"{s.name}={n}" for s, n in sorted(det.by_severity().items(), reverse=True) if n)
+    typer.echo(
+        f"\nrun date {day}  matrix {matrix.version}  checked {det.checked}/{det.total}  "
+        f"compliant {len(det.compliant)}  findings: {counts or 'none'}",
+        err=True,
+    )
+
+
 # ---------------------------------------------------------------------------------------------- mocks
 
 mocks_app = typer.Typer(no_args_is_help=True, help="Run and control the local mock services.")
