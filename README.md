@@ -47,4 +47,14 @@ uv run drift mocks night 2            # nights 0-4: 2026-10-01, -02, -03, -05, -
 Each night applies cumulative changes (upgrades, regressions, outages, a new cluster) and rewrites the effective
 inventory at `var/mocks/inventory.yaml`. Sequences are listed in `seed/scenario.yaml`.
 
+## Collecting versions (no rules yet)
+
+```bash
+uv run drift collect                  # all clusters in the inventory, one line each
+uv run drift collect -c c003 -c payments-prod-11 --json   # subset, raw fetch records
+```
+
+Access is GET-only, enforced by the client and again by the HTTP transport. Concurrency, per-attempt timeout,
+retries and the overall time budget come from `clusters.*` in config.
+
 _More sections (running a night, evals, switching LLM provider) are added as milestones land._

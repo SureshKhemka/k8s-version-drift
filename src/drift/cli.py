@@ -44,6 +44,51 @@ def config_check(config_dir: ConfigDirOpt = None, env: EnvOpt = None) -> None:
     typer.echo("configuration OK")
 
 
+# -------------------------------------------------------------------------------------------- collect
+
+
+@app.command("collect")
+def collect_cmd(
+    cluster: Annotated[list[str] | None, typer.Option("--cluster", "-c", help="Cluster ID or name; repeatable")] = None,
+    as_json: Annotated[bool, typer.Option("--json", help="Print raw fetch results as JSON lines")] = False,
+    config_dir: ConfigDirOpt = None,
+    env: EnvOpt = None,
+) -> None:
+    """Fetch versions from clusters and print what was collected (no rules, no posting)."""
+    import asyncio
+
+    from drift.collect.collector import Collector
+    from drift.collect.sources import SourceError, load_inventory, select
+    from drift.domain.models import snapshot
+
+    cfg = _load(config_dir, env, runtime=False)
+    try:
+        inventory = load_inventory(cfg.sources.inventory)
+        clusters = select(inventory, cluster)
+    except SourceError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(ExitCode.CONFIG_ERROR) from exc
+    results = asyncio.run(Collector(cfg.clusters).collect(clusters))
+    by_id = inventory.by_id()
+    for r in results:
+        if as_json:
+            typer.echo(r.model_dump_json())
+            continue
+        c = by_id[r.cluster_id]
+        if not r.reachable:
+            typer.echo(f"{c.id}  {c.name:<28} UNREACHABLE  {r.reason}  (attempts={len(r.attempts)})")
+            continue
+        s = snapshot(c, r)
+        cp = str(s.control_plane.parsed) if s.control_plane.ok else f"UNPARSEABLE({s.control_plane.raw})"
+        pools = ", ".join(
+            f"{p.name}:{'/'.join(sorted({str(v.parsed) if v.ok else v.raw for _, v in p.nodes}))}x{len(p.nodes)}"
+            for p in s.pools
+        )
+        typer.echo(f"{c.id}  {c.name:<28} cp={cp:<8} nodes={s.node_count:<4} {pools}")
+    ok = sum(r.reachable for r in results)
+    typer.echo(f"\n{ok}/{len(results)} clusters reachable", err=True)
+
+
 # ---------------------------------------------------------------------------------------------- mocks
 
 mocks_app = typer.Typer(no_args_is_help=True, help="Run and control the local mock services.")
