@@ -6,7 +6,7 @@ hand-written in scripts/build_seed.py and never derived from the engine.
 
 import pytest
 
-from evals.support import NIGHTS, expected_findings, finding_row, run_night
+from evals.support import NIGHTS, expected_findings, finding_row, night_run
 
 
 def _key(row):
@@ -14,8 +14,8 @@ def _key(row):
 
 
 @pytest.mark.parametrize("night", NIGHTS)
-async def test_ev01_night(tmp_path, night):
-    run = await run_night(tmp_path, night)
+async def test_ev01_night(night):
+    run = await night_run(night)
     actual = {_key(r): r for r in map(finding_row, run.detection.findings)}
     expected = {_key(r): r for r in expected_findings(night)}
 

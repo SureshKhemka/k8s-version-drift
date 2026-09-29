@@ -60,6 +60,19 @@ async def run_night(state_dir: Path, night: int, cfg: AppConfig | None = None) -
     return NightRun(night, run_date, inventory, matrix, results, detection, mock)
 
 
+_CACHE: dict[int, NightRun] = {}
+
+
+async def night_run(night: int) -> NightRun:
+    """Cached run_night with the eval config. Collection is deterministic per night (EV-17), so each night
+    is collected once per test session. Use ``run_night`` directly when a test needs a fresh mock call log."""
+    if night not in _CACHE:
+        import tempfile
+
+        _CACHE[night] = await run_night(Path(tempfile.mkdtemp(prefix=f"drift-eval-n{night}-")), night)
+    return _CACHE[night]
+
+
 def expected_findings(night: int) -> list[dict[str, Any]]:
     return yaml.safe_load((EXPECTED / f"findings_night_{night}.yaml").read_text())["findings"]
 
@@ -77,3 +90,34 @@ def finding_row(f: Finding) -> dict[str, Any]:
         "days_remaining": f.days_remaining,
         "nodes_affected": f.nodes_affected,
     }
+
+
+def expected_tags(night: int) -> dict[str, Any]:
+    return yaml.safe_load((EXPECTED / f"tags_night_{night}.yaml").read_text())
+
+
+async def run_sequence(tmp: Path, nights: tuple[int, ...] = NIGHTS):  # type: ignore[no-untyped-def]
+    """Run nights in order through collection, detection, change tagging and the store. Yields per night."""
+    from drift.diff.tagging import tag_changes
+    from drift.store.sqlite import Store
+
+    cfg = eval_config()
+    store = Store(tmp / "drift.db")
+    try:
+        for night in nights:
+            run = await night_run(night)
+            baseline = store.load_baseline(run.run_date)
+            changes = tag_changes(
+                run.detection.findings,
+                [c.id for c in run.inventory.clusters],
+                baseline,
+                cfg.policy.worsened_days_thresholds,
+            )
+            run_id = f"eval-night-{night}"
+            store.create_run(run_id, run.run_date, f"{run.run_date}T02:00:00+05:30")
+            store.save_detection(
+                run_id, run.run_date, run.matrix.version, {r.cluster_id: r.reachable for r in run.results}, changes
+            )
+            yield run, changes, store
+    finally:
+        store.close()

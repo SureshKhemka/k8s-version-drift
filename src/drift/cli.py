@@ -140,6 +140,39 @@ def detect_cmd(
     )
 
 
+@app.command("history")
+def history_cmd(
+    cluster: Annotated[str, typer.Argument(help="Cluster ID or name")],
+    since: Annotated[str | None, typer.Option("--since", help="Only runs on/after YYYY-MM-DD")] = None,
+    config_dir: ConfigDirOpt = None,
+    env: EnvOpt = None,
+) -> None:
+    """Findings history for one cluster (FR-33)."""
+    from datetime import date
+
+    from drift.collect.sources import SourceError, load_inventory
+    from drift.store.sqlite import Store
+
+    cfg = _load(config_dir, env, runtime=False)
+    cid = cluster
+    try:
+        inv = load_inventory(cfg.sources.inventory)
+        cid = next((c.id for c in inv.clusters if cluster in (c.id, c.name)), cluster)
+    except SourceError:
+        pass  # history may outlive the current inventory; fall back to the literal ID
+    store = Store(cfg.storage.db_path)
+    rows = store.history(cid, date.fromisoformat(since) if since else None)
+    store.close()
+    if not rows:
+        typer.echo(f"no history for {cluster}")
+        return
+    for r in rows:
+        f = r["finding"]
+        typer.echo(
+            f"{r['run_date']}  {r['tag']:<11} {r['severity']:<8} {r['rule']:<20} {r['subject']:<14} {f['observed']}"
+        )
+
+
 # ---------------------------------------------------------------------------------------------- mocks
 
 mocks_app = typer.Typer(no_args_is_help=True, help="Run and control the local mock services.")
