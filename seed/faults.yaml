@@ -1,0 +1,12 @@
+# Extra fault injection (MS-5), layered on top of per-cluster faults in seed/world.yaml.
+# Cluster entries here REPLACE the world fault for that cluster. Evals can also set faults at runtime
+# via PUT /_admin/faults on either mock.
+#
+# FaultSpec fields: mode (none|timeout|auth_error|malformed|http_error), status, latency_ms,
+#                   error_rate (0..1, deterministic via seed), seed, script (per-request list, then mode).
+k8s:
+  clusters: {}
+  # example:
+  #   c027: {error_rate: 0.3, seed: 7}
+channel: null
+  # example: {script: ["http_error:500", "http_error:500"]}   # fails twice, then accepts

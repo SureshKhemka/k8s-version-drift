@@ -37,6 +37,7 @@ drift = "drift.cli:app"
 testpaths = ["tests", "evals"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
+filterwarnings = ["ignore:Using `httpx` with `starlette.testclient`"]
 
 [tool.ruff]
 line-length = 120
@@ -46,7 +47,16 @@ target-version = "py312"
 select = ["E", "F", "I", "B", "UP", "SIM", "RUF"]
 ignore = ["RUF001", "RUF002", "RUF003"]
 
+[tool.ruff.lint.per-file-ignores]
+"scripts/build_seed.py" = ["E501"]  # hand-aligned data table
+
+[tool.ruff.format]
+exclude = ["scripts/build_seed.py"]
+
 [tool.mypy]
 python_version = "3.12"
 strict = true
 plugins = ["pydantic.mypy"]
+
+[tool.uv.build-backend]
+module-name = ["drift", "drift_mocks"]

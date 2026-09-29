@@ -123,6 +123,10 @@ class ClustersConfig(_Strict):
     # CF-3: name of the env var holding a bearer token; None = no auth (mocks).
     token_env: str | None = None
     verify_tls: bool = True
+    # CF-5: API server URL per cluster. ``{id}`` is replaced; an inventory ``api_server`` wins if present.
+    endpoint_template: str | None = None
+    node_pool_labels: tuple[str, ...]  # first label present on a node names its pool
+    page_size: int = Field(default=100, ge=1, le=5000)
 
 
 # -------------------------------------------------------------------- policy
@@ -237,6 +241,7 @@ class MocksConfig(_Strict):
     seed_dir: Path
     state_dir: Path
     faults: Path
+    timeout_sleep_s: float = Field(default=30.0, gt=0)
 
 
 class LoggingConfig(_Strict):

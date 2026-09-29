@@ -52,7 +52,8 @@ prompts:
   judge: judge_v1.md.j2
 
 sources:
-  inventory: {type: file, path: seed/inventory.yaml}
+  # The mock world writes the effective inventory for the current night here (drift mocks reset / night N).
+  inventory: {type: file, path: var/mocks/inventory.yaml}
   matrix: {type: file, path: seed/matrix.yaml}
 
 clusters:
@@ -63,6 +64,12 @@ clusters:
   time_budget_s: 60
   token_env: null               # mocks need no auth
   verify_tls: true
+  endpoint_template: http://127.0.0.1:8081/clusters/{id}
+  node_pool_labels:
+    - eks.amazonaws.com/nodegroup
+    - cloud.google.com/gke-nodepool
+    - node.kubernetes.io/pool
+  page_size: 100
 
 policy:
   skew_max_minor: 3             # kubelet may be up to 3 minors older than the API server
@@ -123,6 +130,7 @@ mocks:
   seed_dir: seed
   state_dir: var/mocks
   faults: seed/faults.yaml
+  timeout_sleep_s: 30
 
 logging:
   level: INFO

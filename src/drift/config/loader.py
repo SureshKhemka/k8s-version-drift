@@ -24,7 +24,7 @@ from drift.config.models import AppConfig
 from drift.domain.enums import OutputMode
 
 ENV_PREFIX = "DRIFT__"
-_SENSITIVE_KEY = re.compile(r"(url|endpoint|token|secret|password|api_key|headers)$", re.IGNORECASE)
+_SENSITIVE_KEY = re.compile(r"(^|_)(url|endpoint|token|secret|password|api_key|headers)(_|$)", re.IGNORECASE)
 MASK = "***"
 
 
