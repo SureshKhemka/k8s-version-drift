@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
 from typing import Any
@@ -141,6 +141,7 @@ class PipelineEnv:
     k8s: K8sMockState
     channel: Any  # ChannelMockState
     environ: dict[str, str]
+    seq: list[int] = field(default_factory=lambda: [0])  # shared run counter -> deterministic run IDs
 
     def __post_init__(self) -> None:
         from drift_mocks.channel import create_app as channel_app
@@ -159,7 +160,9 @@ class PipelineEnv:
 
     def with_cfg(self, **updates: Any) -> PipelineEnv:
         """Same world, config sections replaced (e.g. ``llm=...``). Shares mocks, store and outbox."""
-        env = PipelineEnv(self.root, self.cfg.model_copy(update=updates), self.k8s, self.channel, self.environ)
+        env = PipelineEnv(
+            self.root, self.cfg.model_copy(update=updates), self.k8s, self.channel, self.environ, self.seq
+        )
         return env
 
 
@@ -193,6 +196,8 @@ async def run_pipeline_night(env: PipelineEnv, night: int, **kwargs: Any):  # ty
     if env.k8s.world.night != night:
         env.k8s.set_night(night)
     day = night_date(night)
+    env.seq[0] += 1
+    kwargs.setdefault("run_id", f"{day.isoformat()}-ev{env.seq[0]:04d}")
     return await run_once(
         env.cfg,
         clock=FixedClock.on(day),

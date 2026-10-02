@@ -212,3 +212,17 @@ def test_ev03_no_posted_message_states_a_fact_not_in_the_findings(sequence):
         res = gate2.check(text, sheet_for_outcome(env, out), max_length=None, deny_list=env.cfg.deny_list)
         problems += [f"{out.run_date} ({out.summary_source}): {e}" for e in res.errors]
     assert not problems, "\n".join(problems)
+
+
+# ----------------------------------------------------------------------------------- EV-17
+
+
+async def test_ev17_runs_are_repeatable(tmp_path):
+    """Two fresh worlds, same nights: byte-identical posted messages (fixed clock, seeds, run IDs)."""
+    texts = []
+    for i in range(2):
+        env = _fast(pipeline_env(tmp_path / f"w{i}"))
+        for night in (0, 1):
+            await run_pipeline_night(env, night)
+        texts.append(env.messages())
+    assert texts[0] == texts[1] and len(texts[0]) == 2

@@ -184,5 +184,8 @@ fallback) into `evals/human_labels/labels.yaml`. Score each `human_score` 1–5 
 `drift eval run` reports mean absolute error, exact / within-one agreement and Spearman correlation between
 judge and human. Until 15 items are scored the section says "pending".
 
-**Repeatable (EV-17).** Evals use the in-process mocks, fixed scenario dates and fixed seeds; replay makes
-the LLM part deterministic too.
+**Repeatable (EV-17).** Evals use the in-process mocks, fixed scenario dates, fixed seeds and deterministic
+run IDs; replay makes the LLM part deterministic too.
+
+The recorded baseline (qwen3.8-27b vs gemma-4-31b, prompts v1) is in `docs/eval-baseline.md`; a plain
+`uv run drift eval run` reproduces it from `evals/cassettes/` in about a minute with no model running.

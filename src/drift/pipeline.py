@@ -117,6 +117,7 @@ async def run_once(
     summarizer: Summarizer | None = None,
     k8s_transport: TransportFactory | None = None,
     channel_transport: TransportFactory | None = None,
+    run_id: str | None = None,  # evals pass deterministic IDs (EV-17); production IDs are random
 ) -> RunOutcome:
     run_date = run_date or clock.now().date()
     mode = OutputMode(mode or cfg.output.mode)
@@ -134,7 +135,7 @@ async def run_once(
         return RunOutcome(None, run_date, ExitCode.CONFIG_ERROR, "CONFIG_ERROR", errors=[str(exc)])
 
     store = Store(cfg.storage.db_path)
-    run_id = new_run_id(run_date)
+    run_id = run_id or new_run_id(run_date)
     redactor = Redactor.from_env(
         [cfg.clusters.token_env, cfg.channel.webhook_url_env, *(p.api_key_env for p in cfg.llm.providers.values())],
         environ,

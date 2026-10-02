@@ -397,6 +397,7 @@ async def run_eval(
         report["human_agreement"] = await human_agreement(cfg, judge)
     if judge is not None:
         report["judge_cassette"] = {"hits": judge.client.hits, "misses": judge.client.misses}
+    report["warnings"] = warnings(report)
     report["verdict"] = verdict(report)
     (out_dir / "report.json").write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n")
     (out_dir / "report.md").write_text(render_markdown(report))
@@ -405,6 +406,22 @@ async def run_eval(
         latest.unlink()
     latest.symlink_to(stamp)
     return report, out_dir
+
+
+def warnings(report: dict[str, Any]) -> list[str]:
+    """Things that do not fail the run but weaken what the numbers mean."""
+    out = []
+    jm = report.get("judge_model")
+    same = [n for n, m in report.get("models", {}).items() if jm and m["model"] == jm]
+    if same:
+        out.append(
+            f"judge model {jm} is also under test ({', '.join(same)}): scores for its own messages may be "
+            "biased; set a different llm.steps.judge for a fair comparison"
+        )
+    ha = report.get("human_agreement") or {}
+    if ha and ha.get("status") != "ok":
+        out.append(f"judge not yet validated against human labels (EV-13): {ha.get('status')}")
+    return out
 
 
 def verdict(report: dict[str, Any]) -> dict[str, Any]:
@@ -442,6 +459,8 @@ def render_markdown(r: dict[str, Any]) -> str:
         + f" · judge `{r['judge_model']}` · limit {r['message_limit']} chars",
         "",
     ]
+    if r.get("warnings"):
+        lines += ["**Warnings**", "", *(f"- {w}" for w in r["warnings"]), ""]
     if "hard_gates" in r:
         hg = r["hard_gates"]
         lines += ["## Hard gates (must be 100%)", "", "| Gate | Passed | Failed |", "|---|---|---|"]
