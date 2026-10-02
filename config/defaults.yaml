@@ -42,6 +42,7 @@ llm:
     judge:                      # EV-12: judge configured separately from models under test
       model: google/gemma-4-31b
       temperature: 0.0
+      max_tokens: 1200
 
 chain:
   max_themes: 5
@@ -52,7 +53,7 @@ prompts:
   group: group_v1.md.j2
   draft: draft_v1.md.j2
   shorten: shorten_v1.md.j2
-  judge: judge_v1.md.j2
+  judge: judge_v1.md.j2         # EV-12 rubric
 
 sources:
   # The mock world writes the effective inventory for the current night here (drift mocks reset / night N).
@@ -134,6 +135,16 @@ mocks:
   state_dir: var/mocks
   faults: seed/faults.yaml
   timeout_sleep_s: 30
+
+evals:
+  models:                       # EV-16: profiles compared side by side (applied to group/draft/shorten)
+    qwen-27b: {provider: lmstudio, model: qwen/qwen3.8-27b}
+    gemma-31b: {provider: lmstudio, model: google/gemma-4-31b}
+  default_models: [qwen-27b, gemma-31b]
+  nights: [0, 1, 2, 3, 4]
+  cassette_dir: evals/cassettes # EV-15: recorded LLM outputs for replay
+  reports_dir: reports
+  human_labels: evals/human_labels/labels.yaml
 
 logging:
   level: INFO

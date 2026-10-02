@@ -143,4 +143,46 @@ export DRIFT__LLM__ENABLED=false
 Model-specific request switches go in the provider's `extra_body` (the local Qwen needs
 `reasoning_effort: "none"`, see D36). Set `price_in_per_mtok`/`price_out_per_mtok` to get cost estimates.
 
-_More sections (eval reports, replay mode, model comparison) are added in M7._
+## Running evals (`drift eval`)
+
+One command runs everything and writes `reports/<timestamp>/report.{json,md}` (`reports/latest` points at the
+newest). Exit code 0 only when the verdict is PASS.
+
+```bash
+uv run drift eval run                       # replay mode: recorded LLM outputs, no model needed (EV-15)
+uv run drift eval run --mode auto           # call the model only where nothing is recorded, and record it
+uv run drift eval run --mode record         # re-record everything (after changing a prompt or model)
+uv run drift eval run --mode live           # call the model, record nothing
+uv run drift eval run -m qwen-27b --nights 0,1 --no-judge   # one profile, two nights, no judge
+uv run drift eval compare reports/<A> reports/<B>           # metrics side by side with deltas
+```
+
+What a report contains:
+
+| Section | Requirement |
+|---|---|
+| Hard gates (pytest `evals/hard`) — must be 100% | EV-1..EV-10 |
+| Every posted message re-checked by Gate 2 — must be 0 failures | EV-3 |
+| Per chain step: first-attempt pass %, pass after retries %, mean attempts, latency, tokens; fallback % and reasons | EV-11 |
+| Judge scores per rubric criterion (`prompts/judge_v1.md.j2`), with the code-only fallback as a baseline | EV-12 |
+| Judge vs human agreement on `evals/human_labels/labels.yaml` | EV-13 |
+| Message length min / median / max and count over the limit | EV-14 |
+| Model profiles side by side (`evals.models` in config) | EV-16 |
+
+Verdict FAIL means: a hard gate failed, a posted message failed Gate 2, or (in replay) an LLM call had no
+recording — re-record with `--mode auto`. Judge scores never change the verdict.
+
+**Replay (EV-15).** Every LLM call is keyed by provider, model, temperature, max tokens, messages and schema
+and stored under `evals/cassettes/`. Changing code or gates and re-running in replay re-evaluates the same
+model answers; changing a prompt changes the key and shows up as a cassette miss, never as a stale answer.
+
+**Model comparison (EV-16).** Add a profile under `evals.models` (any provider/model; config only) and run
+`drift eval run -m <a> -m <b>`.
+
+**Human labels (EV-13).** `drift eval export-labels reports/latest` copies up to 15 messages (LLM-written and
+fallback) into `evals/human_labels/labels.yaml`. Score each `human_score` 1–5 using the judge rubric; the next
+`drift eval run` reports mean absolute error, exact / within-one agreement and Spearman correlation between
+judge and human. Until 15 items are scored the section says "pending".
+
+**Repeatable (EV-17).** Evals use the in-process mocks, fixed scenario dates and fixed seeds; replay makes
+the LLM part deterministic too.

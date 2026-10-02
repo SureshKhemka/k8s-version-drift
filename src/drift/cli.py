@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
 import typer
 
@@ -284,6 +284,72 @@ def history_cmd(
         typer.echo(
             f"{r['run_date']}  {r['tag']:<11} {r['severity']:<8} {r['rule']:<20} {r['subject']:<14} {f['observed']}"
         )
+
+
+# ---------------------------------------------------------------------------------------------- evals
+
+eval_app = typer.Typer(no_args_is_help=True, help="Run evals and compare reports (run from the repo root).")
+app.add_typer(eval_app, name="eval")
+
+
+def _harness() -> Any:
+    import sys
+
+    import drift
+
+    repo = Path(drift.__file__).resolve().parents[2]
+    if str(repo) not in sys.path:
+        sys.path.insert(0, str(repo))
+    from evals import harness
+
+    return harness
+
+
+@eval_app.command("run")
+def eval_run(
+    mode: Annotated[str, typer.Option(help="replay | record | auto | live (EV-15)")] = "replay",
+    model: Annotated[
+        list[str] | None, typer.Option("--model", "-m", help="Profile from evals.models; repeatable")
+    ] = None,
+    nights: Annotated[str | None, typer.Option(help="Comma-separated nights, e.g. 0,1")] = None,
+    hard: Annotated[bool, typer.Option("--hard/--no-hard", help="Run the hard gates (EV-1..EV-10)")] = True,
+    judge: Annotated[bool, typer.Option("--judge/--no-judge", help="LLM-as-judge scores (EV-12)")] = True,
+    human: Annotated[bool, typer.Option("--human/--no-human", help="Judge vs human agreement (EV-13)")] = True,
+) -> None:
+    """Run the eval suite and write reports/<timestamp>/report.{json,md}. Exit 1 unless the verdict is PASS."""
+    import asyncio
+
+    h = _harness()
+    if mode not in ("replay", "record", "auto", "live"):
+        typer.echo(f"unknown mode {mode!r}", err=True)
+        raise typer.Exit(ExitCode.CONFIG_ERROR)
+    cfg = h.eval_config()
+    models = model or list(cfg.evals.default_models)
+    unknown = [m for m in models if m not in cfg.evals.models]
+    if unknown:
+        typer.echo(f"unknown model profile(s): {unknown}; defined: {sorted(cfg.evals.models)}", err=True)
+        raise typer.Exit(ExitCode.CONFIG_ERROR)
+    night_list = tuple(int(n) for n in nights.split(",")) if nights else cfg.evals.nights
+    report, out_dir = asyncio.run(h.run_eval(models, mode, night_list, hard, judge, human))
+    typer.echo((out_dir / "report.md").read_text())
+    typer.echo(f"report: {out_dir}/report.md", err=True)
+    raise typer.Exit(0 if report["verdict"]["status"] == "PASS" else 1)
+
+
+@eval_app.command("compare")
+def eval_compare(a: Path, b: Path) -> None:
+    """Compare two reports (directories or report.json files)."""
+    typer.echo(_harness().compare(a, b))
+
+
+@eval_app.command("export-labels")
+def eval_export_labels(
+    report: Path, limit: Annotated[int, typer.Option(help="Maximum items in the labelled set")] = 15
+) -> None:
+    """Copy messages from a report into the human-label file for scoring (EV-13)."""
+    h = _harness()
+    n = h.export_labels(report, h.eval_config().evals.human_labels, limit)
+    typer.echo(f"{n} items in {h.eval_config().evals.human_labels}; fill in human_score (1-5) for each")
 
 
 # ---------------------------------------------------------------------------------------------- mocks

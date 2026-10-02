@@ -228,3 +228,21 @@ async def fact_sheet(night: int):  # type: ignore[no-untyped-def]
                 cfg.channel.mentions.on_critical,
             )
     return _SHEETS[night]
+
+
+def sheet_for_outcome(env: PipelineEnv, out: Any):  # type: ignore[no-untyped-def]
+    """Rebuild the fact sheet for a finished pipeline run (actual run ID, inventory at that night)."""
+    from drift.chain.facts import FactSheet
+    from drift.collect.sources import load_matrix
+    from drift.message.compose import RunFacts
+
+    matrix_version = load_matrix(env.cfg.sources.matrix).version
+    facts = RunFacts.build(out.run_id, out.run_date, out.detection, out.changes, matrix_version)
+    clusters = list(env.k8s.world.clusters.values())
+    return FactSheet.build(
+        facts,
+        out.changes,
+        [c["name"] for c in clusters],
+        [c["id"] for c in clusters],
+        env.cfg.channel.mentions.on_critical,
+    )

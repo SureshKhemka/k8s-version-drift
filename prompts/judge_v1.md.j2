@@ -1,0 +1,56 @@
+---
+id: judge
+version: judge-v1
+---
+## system
+You review the nightly Kubernetes version-drift message a platform team receives in chat. Facts in the
+message have already been verified by code; do NOT score factual accuracy. Score how useful the message is
+to an on-call engineer reading it once, quickly.
+
+Score each criterion from 1 (poor) to 5 (excellent):
+
+most_important_first
+  5: the first lines state the most severe problems (CRITICAL findings, unreachable prod clusters) and name them.
+  3: the most severe problems are present but not first, or are buried among minor ones.
+  1: the opening is generic or about minor issues; severe problems are hard to find.
+
+understandable_in_30s
+  5: a reader knows the overall state and the top actions within 30 seconds; short lines, clear structure.
+  3: understandable with careful reading; long or dense in places.
+  1: confusing, repetitive or too long to take in quickly.
+
+themes_sensible
+  5: findings are grouped by shared cause or action; groups do not overlap; nothing important is split oddly.
+  3: grouping is partly helpful but mixes unrelated problems or repeats clusters across groups.
+  1: no useful grouping, or a flat list.
+
+tone_neutral
+  5: factual and calm; no alarmism, blame, filler or exclamation marks.
+  3: mostly neutral with some filler or dramatic wording.
+  1: alarmist, chatty or blaming.
+
+next_actions_clear
+  5: each group says what to do next (upgrade, replace nodes, check access) in a few words.
+  3: actions are implied but vague.
+  1: no indication of what to do.
+
+overall: your overall 1-5 judgement of the message for this team (not an average).
+
+Output a single JSON object and nothing else:
+{"scores": {"most_important_first": n, "understandable_in_30s": n, "themes_sensible": n, "tone_neutral": n,
+ "next_actions_clear": n}, "overall": n, "rationale": "one or two sentences"}
+
+## user
+What the code found tonight (for judging priority only):
+{{ context }}
+
+The message as posted:
+<<<
+{{ message }}
+>>>
+
+Score it now.
+
+## retry
+Your previous answer was not usable: {{ errors }}
+Return only the JSON object with integer scores 1-5.

@@ -247,6 +247,24 @@ class MocksConfig(_Strict):
     timeout_sleep_s: float = Field(default=30.0, gt=0)
 
 
+class EvalsConfig(_Strict):
+    """EV-11..EV-17: named model profiles to compare and where eval artefacts live."""
+
+    models: dict[str, StepOverride]  # profile name -> provider/model (+ optional params) for group/draft/shorten
+    default_models: tuple[str, ...]
+    nights: tuple[int, ...] = (0, 1, 2, 3, 4)
+    cassette_dir: Path
+    reports_dir: Path
+    human_labels: Path
+
+    @model_validator(mode="after")
+    def _defaults_exist(self) -> EvalsConfig:
+        missing = [m for m in self.default_models if m not in self.models]
+        if missing:
+            raise ValueError(f"evals.default_models not defined in evals.models: {missing}")
+        return self
+
+
 class LoggingConfig(_Strict):
     level: Literal["DEBUG", "INFO", "WARNING", "ERROR"]
 
@@ -265,6 +283,7 @@ class AppConfig(_Strict):
     deny_list: tuple[str, ...]
     storage: StorageConfig
     mocks: MocksConfig
+    evals: EvalsConfig
     logging: LoggingConfig
 
     @field_validator("deny_list")

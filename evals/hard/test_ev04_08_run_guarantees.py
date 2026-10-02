@@ -19,7 +19,7 @@ from drift.logs import setup as setup_logging
 from drift.message.compose import Fmt, appendix_line
 from drift.store.recorder import Redactor
 from drift_mocks.faults import FaultSpec
-from evals.support import EVAL_SECRETS, NIGHTS, pipeline_env, run_pipeline_night
+from evals.support import EVAL_SECRETS, NIGHTS, pipeline_env, run_pipeline_night, sheet_for_outcome
 
 
 @pytest.fixture(scope="module")
@@ -201,24 +201,6 @@ async def test_bad_inventory_is_config_error_before_any_cluster_call(tmp_path):
 # ------------------------------------------------------------------------------------ EV-3
 
 
-def _sheet_for(env, out):
-    from drift.chain.facts import FactSheet
-    from drift.message.compose import RunFacts
-
-    matrix_version = (
-        next(line for line in out.message.splitlines() if "matrix " in line).split("matrix ")[1].split(" ·")[0]
-    )
-    facts = RunFacts.build(out.run_id, out.run_date, out.detection, out.changes, matrix_version)
-    clusters = env.k8s.world.clusters.values()
-    return FactSheet.build(
-        facts,
-        out.changes,
-        [c["name"] for c in clusters],
-        [c["id"] for c in clusters],
-        env.cfg.channel.mentions.on_critical,
-    )
-
-
 def test_ev03_no_posted_message_states_a_fact_not_in_the_findings(sequence):
     from drift.chain.gates import gate2
 
@@ -227,6 +209,6 @@ def test_ev03_no_posted_message_states_a_fact_not_in_the_findings(sequence):
     assert len(posted) == len(outcomes)
     problems = []
     for out, text in zip(outcomes, posted, strict=True):
-        res = gate2.check(text, _sheet_for(env, out), max_length=None, deny_list=env.cfg.deny_list)
+        res = gate2.check(text, sheet_for_outcome(env, out), max_length=None, deny_list=env.cfg.deny_list)
         problems += [f"{out.run_date} ({out.summary_source}): {e}" for e in res.errors]
     assert not problems, "\n".join(problems)
